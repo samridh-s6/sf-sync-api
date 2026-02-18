@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+	<sub-flow name="common-http-request-sub-flow" doc:id="0ca49f5d-0b72-4696-b7c4-2c326cd6978f" >
+		<logger level="INFO" doc:name="Start Log" doc:id="ae390a58-207e-410c-8dcc-12e4f565b8cc" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    appName: app.name,&#10;    flowName : flow.name,&#10;    position: "Flow Start",&#10;    message: "To call Gemini API",&#10;    correlationId: correlationId,&#10;    timestamp: now() &gt;&gt; "UTC"&#10;}]'/>
+		<until-successful maxRetries="5" doc:name="Until Successful" doc:id="c518b3a1-6316-432f-9f1c-1b86647330ea">
+				<http:request method="#[vars.httpOperation.method]" doc:name="Call Gemini API" doc:id="f81d7261-6693-4b8e-b837-d58e10b99bb7" config-ref="http-request-configuration" path="#[vars.httpOperation.path]">
+				<http:headers><![CDATA[#[vars.httpOperation.headers]]]></http:headers>
+				<http:query-params><![CDATA[#[vars.httpOperation.queryParameters]]]></http:query-params>
+			</http:request>
+			</until-successful>
+		<logger level="INFO" doc:name="End Log" doc:id="80c7e3c9-9b15-45e6-a6fa-c210507a8a55" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    appName: app.name,&#10;    flowName : flow.name,&#10;    position: "Flow End",&#10;    message: "Called external API successfully",&#10;    correlationId: correlationId,&#10;    timestamp: now() &gt;&gt; "UTC"&#10;}]'/>
+	</sub-flow>
+
+	</mule>
+	

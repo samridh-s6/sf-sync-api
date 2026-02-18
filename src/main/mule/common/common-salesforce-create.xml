@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<sub-flow name="common-salesforce-create-sub-flow" doc:id="ddd04eb6-86bf-4746-a929-03314a8f5871" >
+		<logger level="INFO" doc:name="Start Log" doc:id="7d1fc444-c88e-4fa6-b915-87df179b6aa4" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    appName: app.name,&#10;    flowName : flow.name,&#10;    position: "Flow Start",&#10;    message: "To insert records into Salesforce",&#10;    correlationId: correlationId,&#10;    timestamp: now() &gt;&gt; "UTC"&#10;}]'/>
+		<until-successful maxRetries="5" doc:name="Until Successful" doc:id="96185512-4137-4fbc-b067-21ad43aab84a" >
+			<salesforce:create type="Case" doc:name="Case" doc:id="16b6c06f-8a2e-4593-9a9b-05d6c2611162" config-ref="salesforce-config" />
+		</until-successful>
+		<ee:transform doc:name="Salesforce Operation Result" doc:id="17fee738-028c-4a35-ba7d-59dd48e257d1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"success": (payload.items filter ((item, index) -> item.successful ~= 'true')).id,
+	"failed": (payload.items filter ((item, index) -> item.successful ~= 'false')).message
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="End Log" doc:id="215e7d36-348f-48cf-bcab-ef10135ffd9c" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    appName: app.name,&#10;    flowName : flow.name,&#10;    position: "Flow end",&#10;    message: payload,&#10;    correlationId: correlationId,&#10;    timestamp: now() &gt;&gt; "UTC"&#10;}]'/>
+	</sub-flow>
+</mule>

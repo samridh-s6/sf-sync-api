@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:sftp="http://www.mulesoft.org/schema/mule/sftp" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/sftp http://www.mulesoft.org/schema/mule/sftp/current/mule-sftp.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	
+	
+	<flow name="cc-customer-support-api-flow" doc:id="765a2eb0-2307-495c-8277-810480fbfc0a" >
+		<sftp:listener doc:name="On New or Updated File" doc:id="ca83d797-3957-4876-a786-307bd8b55b2e" config-ref="sftp-config" directory="customer-support/incoming-cases" moveToDirectory="customer-support/processed-reports" renameTo='#["new_cases_" ++ now() as String ++ ".csv"]'>
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+			<sftp:matcher filenamePattern="new_cases_*.csv" />
+		</sftp:listener>
+		<logger level="INFO" doc:name="Start Log" doc:id="fa047a8e-3fab-4c23-b545-f6c0e37dffa8" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    appName: app.name,&#10;    flowName : flow.name,&#10;    position: "Flow Start",&#10;    message: "File has been polled by the On New or Updated File",&#10;    correlationId: correlationId,&#10;    timestamp: now() &gt;&gt; "UTC"&#10;}]'/>
+		<ee:transform doc:name="Convert MIME Type CSV to JAVA" doc:id="fa6dc1ed-59a9-4913-a96b-ca941b3b3fb9" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<foreach doc:name="For Each" doc:id="7a43e012-917c-40d5-bd6a-8a3080d1b0ce" >
+			<try doc:name="Try" doc:id="39007dcd-6904-44f2-a69f-848d17238b5d" >
+				<flow-ref doc:name="categorizing-customers-issue-sub-flow" doc:id="e10577d2-327a-4c2a-873c-b4b04d57c820" name="categorizing-customers-issue-sub-flow" />
+				<error-handler >
+					<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="2504bc95-73a0-4ff3-bcc4-024362f29c5c" >
+						<logger level="INFO" doc:name="Log Failed Record" doc:id="1e81c815-126f-4d43-98c7-a007f840b73a" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;	appName: app.name,&#10;	flowName: flow.name,&#10;	message: if ( !isEmpty(error.suppressedErrors) ) if ( !isEmpty(error.suppressedErrors.description) ) error.suppressedErrors.description else error.suppressedErrors&#10;else if ( !isEmpty(error.childErrors) ) if ( !isEmpty(error.childErrors.description) ) error.childErrors.description else error.childErrors&#10;else error.errorMessage.payload default error.errorMessage default error.description,&#10;	correlationId: correlationId,&#10;	timestamp: now() &gt;&gt; "UTC"&#10;}]'/>
+						<ee:transform doc:name="Convert MIME Type JAVA to CSV" doc:id="36d5d856-4c04-4187-b279-0e413dea7c6a" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/csv
+---
+payload]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<sftp:write doc:name="failed-cases" doc:id="196e4b8a-8cba-485d-9919-a4b08831a1e1" config-ref="sftp-config" path="customer-support/failed-cases/failed-records.csv" createParentDirectories="false" mode="APPEND"/>
+					</on-error-continue>
+				</error-handler>
+			</try>
+		</foreach>
+		<set-payload value="#[vars.enrichedCases]" doc:name="For Salesforce" doc:id="dac40665-f215-44f7-b7f1-56568c20221a" />
+		<flow-ref doc:name="common-salesforce-create-sub-flow" doc:id="8611aaa0-352c-4d67-94be-52a6a8fe1047" name="common-salesforce-create-sub-flow" />
+		<logger level="INFO" doc:name="End Log" doc:id="1b9c3bb2-62ca-47bf-8ad7-983f423467a9" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    appName: app.name,&#10;    flowName : flow.name,&#10;    position: "Flow End",&#10;    message: "Main flow has ended, execution completed successfully",&#10;    correlationId: correlationId,&#10;    timestamp: now() &gt;&gt; "UTC"&#10;}]'/>
+	</flow>
+</mule>

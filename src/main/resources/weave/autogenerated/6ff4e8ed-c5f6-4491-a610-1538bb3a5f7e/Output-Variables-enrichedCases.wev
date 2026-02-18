@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_6ff4e8ed_c5f6_4491_a610_1538bb3a5f7e_Output_Variables_enrichedCases = Array<{|  Status: String,   Origin: String,   Subject: Any,   Description: Any,   OwnerId: "00GgK000004sZ2bUAE" | "00GgK000004skbRUAQ" | "00GgK000004sfK2UAI",   SuppliedEmail: Any|}>
+

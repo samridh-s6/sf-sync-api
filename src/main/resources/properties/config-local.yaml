@@ -1,0 +1,20 @@
+# Local Configuration
+
+sftp:
+  host: "us-east-1.sftpcloud.io"
+  port: "22"
+  username: "f6b4666ce2884d56add63f42dc13e1ed"
+ 
+salesforce:
+  username: "samridh.srivastava966@agentforce.com"
+  billing-queue-id: "00GgK000004sZ2bUAE"
+  technical-queue-id: "00GgK000004skbRUAQ"
+  general-queue-id: "00GgK000004sfK2UAI"
+ 
+gemini:
+  host: "generativelanguage.googleapis.com"
+  base-path: "/v1beta/models"
+  path: "/gemini-2.0-flash:generateContent"
+  port: "443"
+  
+  

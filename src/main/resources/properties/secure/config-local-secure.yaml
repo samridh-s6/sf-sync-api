@@ -1,0 +1,11 @@
+# Local Secure Credentials
+
+salesforce:
+ password: "![jYqJ1GLCiXiSwxAXFhKEfg==]"
+ security-token: "![v52Ti6F2gut4848SuLps09jGCTGOhBNQW55w7Pue/vo=]"
+ 
+sftp:
+  password: "![uso05ILzH4+Lf/AyRZU5WUazfgVYIQYSFkBrW2EeOiLNy8KqHeqHsSbgNPt2iIKf]"
+  
+gemini:
+  key: "![y4QQ4kdV0IjY6GmrI108bkgXRQv5s16KsnosVO/P0vL1r9CT2GfgyCbIe+cZeMHl]"

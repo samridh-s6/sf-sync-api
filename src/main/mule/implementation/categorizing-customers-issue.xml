@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+	<sub-flow name="categorizing-customers-issue-sub-flow" doc:id="0a6f78a4-eae4-4216-a201-8350e2137937" >
+				<logger level="INFO" doc:name="Start Log" doc:id="b5369fe1-bb43-462e-9899-79c36c4a82d9" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    appName: app.name,&#10;    flowName : flow.name,&#10;    position: "Flow Start",&#10;    message: "To categorize the customer-issues for the queues in Salesforce",&#10;    correlationId: correlationId,&#10;    timestamp: now() &gt;&gt; "UTC"&#10;}]'/>
+		<set-variable value="#[payload]" doc:name="originalCase" doc:id="5a1216b2-9c97-4d36-b2a5-76b21d760571" variableName="originalCase" />
+				<ee:transform doc:name="Create Gemini Prompt, var : httpOperation" doc:id="fc4e8264-4876-4971-95d6-632f85b37109">
+				<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "contents": [{
+        "parts": [{
+            "text": "Analyze the support case. CRITICAL INSTRUCTION: Respond with ONLY the raw JSON object. Do NOT include any extra text, conversation, or markdown formatting like ```json. Your entire response must be a single, valid JSON object with two keys: 'category' (string) and 'summary' (string). Case Subject: '" ++ payload.Subject ++ "'. Case Description: '" ++ payload.Description ++ "'"
+        }]
+    }]
+}]]></ee:set-payload>
+				</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="httpOperation" ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "method": "POST",
+    "host": Mule::p('gemini.host'),
+    "basePath": Mule::p('gemini.base-path'),
+    "path": Mule::p('gemini.path'),
+    "headers": {
+        "Accept": "application/json"
+    },
+    queryParameters: {
+    	"key": Mule::p('secure::gemini.key')
+    }
+}]]></ee:set-variable>
+			</ee:variables>
+			
+</ee:transform>
+		<flow-ref doc:name="common-http-request-sub-flow" doc:id="aa21610f-60d3-490e-94bc-0a1f1e734d1c" name="common-http-request-sub-flow"/>
+				<ee:transform doc:name="Parse and Merge Response" doc:id="4ff989b9-dc72-4471-8635-3aaa3ff534d9">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+import * from dw::core::Strings 
+
+var geminiRawText = payload.candidates[0].content.parts[0].text
+var startIndex = find(geminiRawText, "{")[0]
+var endIndex = lastIndexOf(geminiRawText, "}")
+var jsonContent = substring(geminiRawText, startIndex, endIndex + 1)
+var geminiResponse = read(jsonContent, "application/json")
+---
+vars.originalCase ++ {
+    ai_category: geminiResponse.category,
+    ai_summary: geminiResponse.summary
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+				<ee:transform doc:name="Map to Salesforce Case" doc:id="0862dc51-1ccc-4134-8ade-4042054aab66">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+
+{
+    Status: 'New',
+    Origin: 'Web',
+    Subject: payload.Subject,
+    Description: payload.ai_summary,
+    OwnerId:
+        if (["Billing", "Billing Inquiry", "Subscription"] contains payload.ai_category)
+            Mule::p('salesforce.billing-queue-id')
+        else if (["Technical", "Account Access", "API Error"] contains payload.ai_category)
+            Mule::p('salesforce.technical-queue-id')
+        else
+            Mule::p('salesforce.general-queue-id'),
+    SuppliedEmail: payload.CustomerEmail
+}
+]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+				<set-variable value="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.enrichedCases default [] ++ [payload]]" doc:name="enrichedCases" doc:id="52512e31-2773-4c72-b1f0-6c5577b480b8" variableName="enrichedCases" />
+		<logger level="INFO" doc:name="End Log" doc:id="35c50cb1-4275-469f-88eb-e51fe0375a2a" message='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    appName: app.name,&#10;    flowName : flow.name,&#10;    position: "Flow End",&#10;    message: "Issues categorized successfully",&#10;    correlationId: correlationId,&#10;    timestamp: now() &gt;&gt; "UTC"&#10;}]'/>
+
+	
+</sub-flow></mule>
